@@ -1,27 +1,31 @@
-resource "aws_security_group" "Demo" {
-    name = "web_sg"
-    description = "allow inbound and outbound for web"
-    vpc_id = aws_vpc.main.id
+resource "aws_instance" "web-server" {
+    count = 3
+    ami = var.ec2-ami
+    instance_type = var.ec2-type    
+    subnet_id = aws_subnet.public-subnet[count.index % 2].id
+    key_name = "learning"
+    security_groups = [ aws_security_group.web-sg.id ]
+    associate_public_ip_address = true
     tags = {
-      Name = "Demo_sg"
+      Name =  var.ec2-name[count.index]
     }
-}
-
-resource "aws_vpc_security_group_ingress_rule" "allow" {
-    security_group_id = aws_security_group.Demo.id
-
-    cidr_ipv4 = "0.0.0.0/0"
-    ip_protocol = "-1"
-}
-
-resource "aws_instance" "Demo-web" {
-  ami             = "ami-00bb6a80f01f03502"   
-  instance_type   = "t2.micro"
-  subnet_id       = aws_subnet.main_1.id
-  key_name        = "learning"
-  vpc_security_group_ids = [aws_security_group.Demo.id]  
-  tags = {
-    Name = "Demo-Web-Server"
-  }
-}
+    user_data = <<-EOF
+                #!/bin/bash
+                apt-get update -y
+                apt-get upgrade -y
+                Install Apache HTTP Server
+                apt-get install -y apache2
+                systemctl start apache2
+                systemctl enable apache2
+                PRIVATE_IP=$(hostname -I | awk '{print $1}')
+                echo "<html>
+                    <head><title>Apache Web Server</title></head>
+                     <body>
+                        <h1>Hello World!</h1>
+                        <p>EC2 Instance Private IP Address: $PRIVATE_IP</p>
+                      </body>
+                    </html>" > /var/www/html/index.html
+                    systemctl restart apache2
+                EOF    
+}  
 
